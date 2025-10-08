@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>VSE Stock Trainer</title>
+<style>
+  :root{--bg:#f5f7fb;--card:#fff;--text:#111;--muted:#475569;--primary:#0f1724}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;background:var(--bg);color:var(--text)}
+  header{background:var(--primary);color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center}
+  header h1{margin:0;font-size:18px}
+  .wrap{max-width:1200px;margin:18px auto;padding:16px}
+  .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 20px rgba(10,20,40,0.06);margin-bottom:12px}
+  .row{display:flex;gap:16px;align-items:flex-start}
+  .left{flex:1;min-width:320px}.right{width:420px;min-width:300px}
+  input,select,button{padding:10px;border-radius:8px;border:1px solid #cbd5e1;font-size:14px}
+  button{cursor:pointer;background:var(--primary);color:#fff;border:none}
+  .small{font-size:13px;color:var(--muted)}
+  .hidden{display:none}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{padding:8px;border-bottom:1px solid #eef2f7;text-align:left}
+  .suggestions{position:absolute;z-index:40;background:var(--card);border:1px solid #e2e8f0;border-radius:8px;max-height:260px;overflow:auto;width:calc(100% - 28px)}
+  .suggest-item{padding:8px;border-bottom:1px solid #f1f5f9;cursor:pointer}
+  .suggest-item:hover{background:#f8fafc}
+  #chart{height:360px}
+  footer{padding:14px;text-align:center;color:var(--muted)}
+  .btn-ghost{background:transparent;border:1px solid #cbd5e1;color:var(--text);padding:8px;border-radius:8px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;gap:12px;align-items:center"><h1>VSE Stock Trainer</h1></div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <div id="header-balance" class="small" style="color:#fff;"></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- LOGIN -->
+  <div id="login-card" class="card">
+    <h2>Login / Sign up</h2>
+    <p class="small">Create an account with email/password. New accounts receive <b>₹100,000</b> virtual balance.</p>
+    <div style="max-width:820px;display:flex;gap:8px;flex-wrap:wrap">
+      <input id="email" placeholder="Email" style="flex:1;min-width:220px"/>
+      <input id="password" type="password" placeholder="Password" style="min-width:220px"/>
+      <button id="btn-login">Login / Sign Up</button>
+    </div>
+    <div id="login-msg" class="small" style="margin-top:8px;color:#475569"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h2 id="welcome">Dashboard</h2>
+        <div id="user-email" class="small"></div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="small">Balance: <b id="balance">-</b></div>
+        <button id="btn-logout" class="btn-ghost">Logout</button>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div class="left">
+        <div class="card" style="position:relative">
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="search" placeholder="Search company (e.g. TCS, RELIANCE)" style="flex:1"/>
+            <select id="exchange">
+              <option value="NSE">NSE</option>
+              <option value="BSE">BSE</option>
+            </select>
+            <button id="btn-search">Search</button>
+          </div>
+          <div id="suggestions" class="suggestions hidden"></div>
+        </div>
+
+        <div id="stock-panel" class="card hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h3 id="stock-title">Select a stock</h3>
+              <div id="stock-sub" class="small"></div>
+            </div>
+            <div style="text-align:right">
+              <div class="small">Live</div>
+              <div id="live-price" style="font-weight:700">-</div>
+            </div>
+          </div>
+
+          <div id="chart" style="margin-top:12px;height:360px"></div>
+
+          <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+            <input id="qty" type="number" min="1" value="1" style="width:110px"/>
+            <button id="buy">Buy</button>
+            <button id="sell" style="background:#ef4444">Sell</button>
+            <div style="margin-left:auto" id="stock-info" class="small"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Portfolio</h3>
+          <div class="small">Holdings & value</div>
+          <table id="portfolio-table">
+            <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>Price</th><th>Value</th><th>Action</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="card">
+          <h4>Quick Info</h4>
+          <div class="small">Initial virtual capital: <b>₹100,000</b></div>
+          <div class="small" style="margin-top:8px">Twelve Data: <span id="td-status">checking...</span></div>
+          <hr/>
+          <h4>Recent Trades</h4>
+          <ul id="trades" style="max-height:220px;overflow:auto;padding-left:18px"></ul>
+        </div>
+
+        <div id="pending-card" class="card" style="margin-top:12px">
+          <h4>Pending Orders</h4>
+          <div id="pending-list" class="small">No pending orders</div>
+        </div>
+
+        <div id="admin-card" class="card hidden" style="margin-top:12px">
+          <h4>Admin</h4>
+          <div><button id="open-admin" class="btn-ghost">Open Admin Panel</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN PAGE -->
+  <div id="admin-page" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2>Admin - Leaderboard</h2>
+      <div><span class="small">Admin</span><button id="admin-back" class="btn-ghost">Back</button></div>
+    </div>
+    <table id="admin-table" style="margin-top:12px">
+      <thead><tr><th>#</th><th>Email</th><th>Balance</th><th>Holdings Value</th><th>Total</th><th>Profit</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>VSE Stock Trainer — demo only. Data by Twelve Data.</footer>
+
+<!-- libs -->
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
+<script type="module">
+/* ---------------------------
+   CONFIG (Your provided values)
+   --------------------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs, query } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBs4jEzCHNAZ-XbEVGaCIw4fOD4OsAYsMM",
+  authDomain: "vse6000-47579.firebaseapp.com",
+  projectId: "vse6000-47579",
+  storageBucket: "vse6000-47579.firebasestorage.app",
+  messagingSenderId: "725559754549",
+  appId: "1:725559754549:web:df1305b267362aa42a967c"
+};
+
+const TD_KEY = "c933f15065e54a7b9d8908b084d72de1"; // your Twelve Data key
+const ADMIN_EMAIL = "admin6@vse.com";
+const ADMIN_PASSWORD = "adminvse2k25";
+
+/* ---------------------------
+   INIT Firebase
+   --------------------------- */
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ---------------------------
+   ELEMENTS & STATE
+   --------------------------- */
+const loginCard = document.getElementById('login-card');
+const dashboard = document.getElementById('dashboard');
+const adminPage = document.getElementById('admin-page');
+const emailIn = document.getElementById('email');
+const pwdIn = document.getElementById('password');
+const btnLogin = document.getElementById('btn-login');
+const loginMsg = document.getElementById('login-msg');
+const btnLogout = document.getElementById('btn-logout');
+
+const userEmailEl = document.getElementById('user-email');
+const balanceEl = document.getElementById('balance');
+const headerBalance = document.getElementById('header-balance');
+
+const searchIn = document.getElementById('search');
+const btnSearch = document.getElementById('btn-search');
+const suggestions = document.getElementById('suggestions');
+
+const stockPanel = document.getElementById('stock-panel');
+const stockTitle = document.getElementById('stock-title');
+const stockSub = document.getElementById('stock-sub');
+const chartContainer = document.getElementById('chart');
+const livePriceEl = document.getElementById('live-price');
+const qtyIn = document.getElementById('qty');
+const buyBtn = document.getElementById('buy');
+const sellBtn = document.getElementById('sell');
+const tradesEl = document.getElementById('trades');
+const pendingList = document.getElementById('pending-list');
+const tdStatus = document.getElementById('td-status');
+
+const adminCard = document.getElementById('admin-card');
+const openAdminBtn = document.getElementById('open-admin');
+const adminTableBody = document.querySelector('#admin-table tbody');
+const adminBackBtn = document.getElementById('admin-back');
+
+let currentUser = null;
+let currentUserDoc = null;
+let selectedSymbol = null; // e.g. "NSE:RELIANCE"
+let chart = null, candleSeries = null;
+let liveTimer = null;
+let pendingCheckTimer = null;
+
+/* ---------------------------
+   UTIL
+   --------------------------- */
+function show(view){
+  loginCard.classList.add('hidden');
+  dashboard.classList.add('hidden');
+  adminPage.classList.add('hidden');
+  view.classList.remove('hidden');
+}
+function money(v){ return '₹' + Number(v).toLocaleString('en-IN',{maximumFractionDigits:2}); }
+async function ensureUserDoc(uid,email){
+  const ref=doc(db,'users',uid);
+  const snap=await getDoc(ref);
+  if(!snap.exists()){
+    const init = { email, balance:100000, portfolio:{}, trades:[], pendingOrders:[], watchlist:[], createdAt:Date.now() };
+    await setDoc(ref, init);
+    return init;
+  }
+  return snap.data();
+}
+
+/* ---------------------------
+   Twelve Data helpers
+   --------------------------- */
+async function tdSearch(q){
+  const url = `https://api.twelvedata.com/symbol_search?symbol=${encodeURIComponent(q)}&apikey=${TD_KEY}`;
+  const r = await fetch(url);
+  return await r.json(); // data in .data
+}
+async function tdQuote(sym){
+  // use quote endpoint (returns structured object)
+  const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(sym)}&apikey=${TD_KEY}`;
+  const r = await fetch(url);
+  return await r.json();
+}
+async function tdCandles(sym, interval='1min', outputsize=500){
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}&interval=${interval}&outputsize=${outputsize}&format=JSON&apikey=${TD_KEY}`;
+  const r = await fetch(url);
+  return await r.json();
+}
+
+/* ---------------------------
+   Chart (lightweight-charts)
+   --------------------------- */
+function createChart(){
+  if(chart) return;
+  chart = LightweightCharts.createChart(chartContainer, {
+    layout: { backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg') || '#fff', textColor: '#111'},
+    width: chartContainer.clientWidth,
+    height: 360,
+    timeScale: { timeVisible: true, secondsVisible: false }
+  });
+  candleSeries = chart.addCandlestickSeries();
+  window.addEventListener('resize', ()=> chart.applyOptions({ width: chartContainer.clientWidth }));
+}
+
+function setCandles(values){
+  // values: array of {datetime, open, high, low, close}
+  // convert to {time: epochSeconds, open, high, low, close}
+  const bars = values.map(v=>({
+    time: Math.floor(new Date(v.datetime).getTime()/1000),
+    open: Number(v.open), high: Number(v.high), low: Number(v.low), close: Number(v.close)
+  })).reverse(); // Twelve Data time_series is descending; reverse to ascending
+  candleSeries.setData(bars);
+  return bars[bars.length-1] || null;
+}
+
+/* ---------------------------
+   Search & select
+   --------------------------- */
+let suggestTimer = null;
+searchIn.addEventListener('input', e=>{
+  const q = e.target.value.trim();
+  if(!q){ suggestions.classList.add('hidden'); return; }
+  if(suggestTimer) clearTimeout(suggestTimer);
+  suggestTimer = setTimeout(async ()=>{
+    try{
+      const res = await tdSearch(q);
+      const items = res.data || [];
+      suggestions.innerHTML = '';
+      if(items.length === 0){ suggestions.innerHTML = '<div class="small" style="padding:8px">No results</div>'; suggestions.classList.remove('hidden'); return; }
+      items.slice(0,12).forEach(it=>{
+        const div = document.createElement('div'); div.className='suggest-item';
+        // Use symbol field which often has exchange prefix (like NSE:RELIANCE)
+        div.textContent = `${it.symbol} — ${it.instrument_name || ''} ${it.exchange? '• '+it.exchange : ''}`;
+        div.onclick = ()=> selectSymbol(it.symbol, it);
+        suggestions.appendChild(div);
+      });
+      suggestions.classList.remove('hidden');
+    }catch(err){
+      suggestions.innerHTML = '<div class="small" style="padding:8px">Search failed</div>'; suggestions.classList.remove('hidden');
+    }
+  }, 250);
+});
+
+btnSearch.addEventListener('click', ()=>{
+  const q = searchIn.value.trim();
+  if(!q) return alert('Type symbol or name');
+  // attempt select by symbol guess (prefer NSE)
+  selectSymbol(`NSE:${q.toUpperCase()}`);
+});
+
+async function selectSymbol(sym, meta){
+  // sym should be Twelve Data symbol e.g. "NSE:RELIANCE" or "BSE:RELIANCE"
+  selectedSymbol = sym;
+  stockTitle.textContent = meta?.instrument_name ? `${meta.instrument_name} (${sym})` : sym;
+  stockSub.textContent = meta?.exchange ? meta.exchange : '';
+  selectedSymbolEl && (selectedSymbolEl.textContent = sym);
+  stockPanel.classList.remove('hidden');
+  createChart();
+  // fetch candles and render
+  try{
+    const raw = await tdCandles(sym,'1min',500);
+    if(raw.status === 'error' || !raw.values || raw.values.length===0){
+      stockSub.textContent = 'No intraday candles available';
+      candleSeries.setData([]);
+      livePriceEl.textContent = '-';
+      return;
+    }
+    const last = setCandles(raw.values);
+    livePriceEl.textContent = last ? money(last.close) : '-';
+    tdStatus.textContent = 'OK';
+    // start live update loop every 5s
+    if(liveTimer) clearInterval(liveTimer);
+    liveTimer = setInterval(()=> liveUpdate(sym), 5000);
+  }catch(e){
+    console.error(e);
+    tdStatus.textContent = 'Error';
+  }
+}
+
+/* live price update and extend latest candle */
+async function liveUpdate(sym){
+  try{
+    const q = await tdQuote(sym);
+    if(q.status === 'error') { livePriceEl.textContent='-'; return; }
+    const p = Number(q.close || q.price || q.last);
+    livePriceEl.textContent = money(p);
+    // Try to extend last candle using time_series endpoint for latest value
+    const r = await tdCandles(sym,'1min',2);
+    if(r && r.values && r.values.length){
+      // update latest candle
+      const latest = r.values[0]; // newest first
+      const bar = { time: Math.floor(new Date(latest.datetime).getTime()/1000), open:Number(latest.open), high:Number(latest.high), low:Number(latest.low), close:Number(latest.close) };
+      candleSeries.update(bar);
+    }
+  }catch(e){
+    console.warn('live update fail',e);
+  }
+}
+
+/* ---------------------------
+   Portfolio / trades
+   --------------------------- */
+async function refreshUI(){
+  if(!currentUser) return;
+  const snap = await getDoc(doc(db,'users',currentUser.uid));
+  currentUserDoc = snap.data();
+  userEmailEl.textContent = currentUser.email;
+  balanceEl.textContent = money(currentUserDoc.balance || 0);
+  headerBalance.textContent = `Balance: ${money(currentUserDoc.balance||0)}`;
+
+  // portfolio table
+  const tbody = document.querySelector('#portfolio-table tbody'); tbody.innerHTML = '';
+  const port = currentUserDoc.portfolio || {};
+  const symbols = Object.keys(port);
+  if(symbols.length===0){ tbody.innerHTML = '<tr><td colspan="6" class="small">No holdings yet</td></tr>'; }
+  else {
+    const pricePromises = symbols.map(s=> tdQuote(s).catch(()=>({close:0})));
+    const prices = await Promise.all(pricePromises);
+    symbols.forEach((s,idx)=>{
+      const h = port[s];
+      const p = Number(prices[idx].close || prices[idx].price || 0);
+      const val = (h.quantity||0) * p;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="cursor:pointer;color:#0b61ff">${s}</td><td>${h.quantity}</td><td>${money(h.avgPrice)}</td><td>${p?money(p):'-'}</td><td>${p?money(val):'-'}</td><td><button data-sym="${s}" class="sell-one btn-ghost">Sell</button></td>`;
+      tr.querySelector('td').onclick = ()=> selectSymbol(s);
+      tbody.appendChild(tr);
+    });
+    document.querySelectorAll('.sell-one').forEach(b=>{
+      b.onclick = async ()=> {
+        const sym = b.getAttribute('data-sym');
+        const q = prompt('Quantity to sell','1'); if(!q) return;
+        await placeOrExecuteOrder('sell', sym, Number(q));
+      };
+    });
+  }
+
+  // trades list
+  const tl = currentUserDoc.trades || [];
+  tradesEl.innerHTML = '';
+  tl.slice().reverse().slice(0,50).forEach(t=>{
+    const li=document.createElement('li'); li.className='small';
+    li.textContent = `[${new Date(t.time).toLocaleString()}] ${t.type.toUpperCase()} ${t.symbol} x ${t.qty} @ ${money(t.price)}`;
+    tradesEl.appendChild(li);
+  });
+
+  // pending
+  renderPending();
+
+  // admin visibility
+  if(currentUser.email === ADMIN_EMAIL) adminCard.classList.remove('hidden'); else adminCard.classList.add('hidden');
+}
+
+/* Handle buy/sell with market hours & pending orders
+   - If market open, execute immediately (fetch price, update portfolio & balance)
+   - If closed, push to pendingOrders array in user doc
+*/
+function isMarketOpenNow(){
+  // NSE: 09:15 - 15:30 IST Monday-Friday (does not account for holidays)
+  const now = new Date();
+  // convert to IST offset (assuming browser local time might not be IST). We'll compute using UTC.
+  const utc = now.getTime() + (now.getTimezoneOffset()*60000);
+  // IST = UTC + 5.5h
+  const ist = new Date(utc + 5.5*3600000);
+  const day = ist.getDay(); // 0 Sun - 6 Sat
+  if(day===0 || day===6) return false;
+  const hours = ist.getHours();
+  const mins = ist.getMinutes();
+  const minutesOfDay = hours*60 + mins;
+  const start = 9*60 + 15, end = 15*60 + 30;
+  return minutesOfDay >= start && minutesOfDay <= end;
+}
+
+async function placeOrExecuteOrder(type, symbol, qty){
+  if(!currentUser) return alert('Login required');
+  if(qty <= 0) return alert('Invalid qty');
+  const userRef = doc(db,'users',currentUser.uid);
+  const snap = await getDoc(userRef);
+  const user = snap.data();
+
+  if(isMarketOpenNow()){
+    // execute immediately
+    const q = await tdQuote(symbol);
+    if(q.status === 'error') return alert('Price unavailable');
+    const price = Number(q.close || q.price || q.last);
+    if(type === 'buy'){
+      const cost = price * qty;
+      if(user.balance < cost) return alert('Insufficient balance');
+      const portfolio = user.portfolio || {};
+      if(!portfolio[symbol]) portfolio[symbol] = { quantity: qty, avgPrice: price };
+      else {
+        const prev = portfolio[symbol];
+        const newQty = prev.quantity + qty;
+        const newAvg = ((prev.avgPrice * prev.quantity) + (price * qty)) / newQty;
+        portfolio[symbol] = { quantity: newQty, avgPrice: newAvg };
+      }
+      const trades = user.trades || [];
+      trades.push({ type:'buy', symbol, qty, price, time: Date.now() });
+      await updateDoc(userRef, { balance: user.balance - cost, portfolio, trades });
+      alert(`Bought ${qty} ${symbol} @ ${money(price)}`);
+    } else {
+      // sell
+      const portfolio = user.portfolio || {};
+      const holding = portfolio[symbol];
+      if(!holding || holding.quantity < qty) return alert('Not enough shares');
+      const proceeds = price * qty;
+      holding.quantity = holding.quantity - qty;
+      if(holding.quantity <= 0) delete portfolio[symbol];
+      const trades = user.trades || [];
+      trades.push({ type:'sell', symbol, qty, price, time: Date.now() });
+      await updateDoc(userRef, { balance: user.balance + proceeds, portfolio, trades });
+      alert(`Sold ${qty} ${symbol} @ ${money(price)}`);
+    }
+    await refreshUI();
+  } else {
+    // push pending order
+    const pending = user.pendingOrders || [];
+    pending.push({ type, symbol, qty, placedAt: Date.now(), status: 'pending' });
+    await updateDoc(userRef, { pendingOrders: pending });
+    alert('Market closed — order saved to pending orders and will execute when market opens.');
+    await refreshUI();
+  }
+}
+
+/* Render pending orders list */
+function renderPending(){
+  const p = (currentUserDoc.pendingOrders || []);
+  if(!p || p.length === 0) { pendingList.textContent = 'No pending orders'; return; }
+  pendingList.innerHTML = '';
+  p.forEach((ord, idx)=>{
+    const div = document.createElement('div');
+    div.style.display='flex'; div.style.justifyContent='space-between'; div.style.padding='6px 0';
+    div.innerHTML = `<div>${ord.type.toUpperCase()} ${ord.symbol} x ${ord.qty} • ${new Date(ord.placedAt).toLocaleString()}</div><div><button data-idx="${idx}" class="cancel-order btn-ghost">Cancel</button></div>`;
+    pendingList.appendChild(div);
+  });
+  document.querySelectorAll('.cancel-order').forEach(btn=>{
+    btn.onclick = async ()=> {
+      const idx = Number(btn.getAttribute('data-idx'));
+      const ref = doc(db,'users',currentUser.uid);
+      const snap = await getDoc(ref);
+      const user = snap.data();
+      const p = user.pendingOrders || [];
+      p.splice(idx,1);
+      await updateDoc(ref, { pendingOrders: p });
+      await refreshUI();
+    };
+  });
+}
+
+/* Periodically check pending orders and execute when market opens */
+async function checkAndExecutePending(){
+  if(!currentUser) return;
+  if(!isMarketOpenNow()) return;
+  const ref = doc(db,'users',currentUser.uid);
+  const snap = await getDoc(ref);
+  const user = snap.data();
+  const pending = user.pendingOrders || [];
+  if(!pending.length) return;
+  const remaining = [];
+  for(const ord of pending){
+    try{
+      // attempt execution like placeOrExecuteOrder but without re-creating pending
+      const q = await tdQuote(ord.symbol);
+      if(q.status === 'error'){ remaining.push(ord); continue; }
+      const price = Number(q.close || q.price || q.last);
+      if(ord.type === 'buy'){
+        const cost = price * ord.qty;
+        if(user.balance < cost){ remaining.push(ord); continue; } // no funds — keep pending
+        const portfolio = user.portfolio || {};
+        if(!portfolio[ord.symbol]) portfolio[ord.symbol] = { quantity: ord.qty, avgPrice: price };
+        else {
+          const prev = portfolio[ord.symbol];
+          const newQty = prev.quantity + ord.qty;
+          const newAvg = ((prev.avgPrice * prev.quantity) + (price * ord.qty)) / newQty;
+          portfolio[ord.symbol] = { quantity: newQty, avgPrice: newAvg };
+        }
+        const trades = user.trades || [];
+        trades.push({ type:'buy', symbol: ord.symbol, qty: ord.qty, price, time: Date.now() });
+        user.balance = user.balance - cost;
+        user.portfolio = portfolio; user.trades = trades;
+      } else {
+        const portfolio = user.portfolio || {};
+        const holding = portfolio[ord.symbol];
+        if(!holding || holding.quantity < ord.qty){ remaining.push(ord); continue; }
+        const proceeds = price * ord.qty;
+        holding.quantity = holding.quantity - ord.qty;
+        if(holding.quantity <= 0) delete portfolio[ord.symbol];
+        const trades = user.trades || [];
+        trades.push({ type:'sell', symbol: ord.symbol, qty: ord.qty, price, time: Date.now() });
+        user.balance = user.balance + proceeds;
+        user.portfolio = portfolio; user.trades = trades;
+      }
+    }catch(e){
+      remaining.push(ord);
+    }
+  }
+  await updateDoc(ref, { balance: user.balance, portfolio: user.portfolio, trades: user.trades, pendingOrders: remaining });
+  if(remaining.length !== (user.pendingOrders||[]).length) await refreshUI();
+}
+
+/* ---------------------------
+   Auth flows
+   --------------------------- */
+btnLogin.addEventListener('click', async ()=>{
+  const email = emailIn.value.trim();
+  const pwd = pwdIn.value.trim();
+  loginMsg.textContent = 'Working...';
+  if(!email || !pwd){ loginMsg.textContent = 'Enter email & password'; return; }
+
+  try{
+    // Block creating admin via signup. If trying to sign up as admin, require exact admin password and create only if credentials match.
+    if(email === ADMIN_EMAIL){
+      // Sign in admin only (no signup). If admin did not exist, create account only if password matches ADMIN_PASSWORD
+      if(pwd !== ADMIN_PASSWORD){
+        // attempt sign-in; if fails, reject
+        try{
+          await signInWithEmailAndPassword(auth, email, pwd);
+        }catch(e){
+          loginMsg.textContent = 'Invalid admin credentials';
+          return;
+        }
+      } else {
+        // admin exact password — attempt sign in, if user does not exist, create admin user account (server owner should prefer creating admin user from Firebase console)
+        try{
+          await signInWithEmailAndPassword(auth, email, pwd);
+        }catch(e){
+          // create admin account
+          await createUserWithEmailAndPassword(auth, email, pwd);
+        }
+      }
+    } else {
+      // Normal user: try sign-in, if fails create account
+      try{
+        await signInWithEmailAndPassword(auth, email, pwd);
+      }catch(e){
+        await createUserWithEmailAndPassword(auth, email, pwd);
+      }
+    }
+    // onAuthStateChanged will handle UI changes
+    loginMsg.textContent = '';
+  }catch(err){
+    console.error(err);
+    loginMsg.textContent = err.message || 'Auth error';
+  }
+});
+
+btnLogout.addEventListener('click', async ()=>{
+  await signOut(auth);
+  currentUser = null;
+  currentUserDoc = null;
+  show(loginCard);
+});
+
+/* onAuth */ 
+onAuthStateChanged(auth, async user => {
+  if(user){
+    currentUser = user;
+    await ensureUserDoc(currentUser.uid, currentUser.email);
+    await refreshUI();
+    show(dashboard);
+    // start pending execution timer for this user only
+    if(pendingCheckTimer) clearInterval(pendingCheckTimer);
+    pendingCheckTimer = setInterval(checkAndExecutePending, 60*1000); // every minute
+  } else {
+    currentUser = null;
+    if(pendingCheckTimer) clearInterval(pendingCheckTimer);
+    show(loginCard);
+  }
+});
+
+/* ---------------------------
+   Buy / Sell buttons
+   --------------------------- */
+buyBtn.addEventListener('click', async ()=>{
+  if(!selectedSymbol) return alert('Select a stock');
+  const q = Number(qtyIn.value);
+  if(!q || q <= 0) return alert('Enter valid qty');
+  await placeOrExecuteOrder('buy', selectedSymbol, q);
+});
+
+sellBtn.addEventListener('click', async ()=>{
+  if(!selectedSymbol) return alert('Select a stock');
+  const q = Number(qtyIn.value);
+  if(!q || q <= 0) return alert('Enter valid qty');
+  await placeOrExecuteOrder('sell', selectedSymbol, q);
+});
+
+/* ---------------------------
+   Admin page
+   --------------------------- */
+openAdminBtn.addEventListener('click', async ()=>{
+  if(!currentUser || currentUser.email !== ADMIN_EMAIL) return alert('Admin only');
+  // load users
+  const snaps = await getDocs(collection(db,'users'));
+  const users = [];
+  const allSymbols = new Set();
+  snaps.forEach(s => {
+    const d = s.data();
+    users.push({ email: d.email, balance: d.balance || 0, portfolio: d.portfolio || {} });
+    Object.keys(d.portfolio || {}).forEach(sym => allSymbols.add(sym));
+  });
+  const symbolList = Array.from(allSymbols);
+  // fetch prices for all symbols (parallel)
+  const priceMap = {};
+  await Promise.all(symbolList.map(async s => {
+    try{ const q = await tdQuote(s); priceMap[s] = Number(q.close || q.price || 0); }catch(e){ priceMap[s] = 0; }
+  }));
+  // compute totals
+  const rows = users.map(u=>{
+    let holdings = 0;
+    Object.entries(u.portfolio || {}).forEach(([s,h]) => { holdings += (h.quantity||0) * (priceMap[s] || 0); });
+    const total = (u.balance || 0) + holdings;
+    return { email: u.email, balance: u.balance || 0, holdings, total, profit: total - 100000 };
+  });
+  rows.sort((a,b)=> b.total - a.total);
+  adminTableBody.innerHTML = '';
+  rows.forEach((r,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i+1}</td><td>${r.email}</td><td>${money(r.balance)}</td><td>${money(r.holdings)}</td><td>${money(r.total)}</td><td>${r.profit>=0?money(r.profit):'<span style="color:#dc2626">'+money(r.profit)+'</span>'}</td>`;
+    if(i<3) tr.style.background = i===0 ? 'linear-gradient(90deg,#fef3c7,#fef7c3)' : 'linear-gradient(90deg,#eef2ff,#eefbff)';
+    adminTableBody.appendChild(tr);
+  });
+  show(adminPage);
+});
+adminBackBtn.addEventListener('click', ()=> show(dashboard));
+
+/* ---------------------------
+   Initial checks
+   --------------------------- */
+(async function initCheck(){
+  try{
+    const r = await fetch(`https://api.twelvedata.com/price?symbol=NSE:TCS&apikey=${TD_KEY}`);
+    const j = await r.json();
+    if(j.price) tdStatus.textContent = 'OK'; else tdStatus.textContent = 'Limited';
+  }catch(e){
+    tdStatus.textContent = 'Error';
+  }
+})();
+</script>
+</body>
+</html>
